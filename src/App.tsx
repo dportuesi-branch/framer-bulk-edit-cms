@@ -53,7 +53,6 @@ export function App() {
         try {
             if (selection) {
                 selection.forEach((selected: CanvasNode) => {
-                    console.log("selected: ", selected)
                     if (selectedCollection) {
                         if(isTextNode(selected)) {                   
                             selected.setText(selectedData[selectedCollectionItemColumnIndex])
@@ -76,22 +75,34 @@ export function App() {
         }
     };
 
-    const handleSetColor = async (colorName: string) => {
-        const backgroundColorNodes = await framer.getNodesWithAttribute("backgroundColor")
+    const handleSetColor = (colorName: string) => {
         try {
-            backgroundColorNodes.forEach((node: CanvasNode) => {
-                if (isFrameNode(node) && node.backgroundColor && typeof node.backgroundColor === 'object' && 'name' in node.backgroundColor) {
-                    if (node.backgroundColor.name === colorName) {
-                        node.setAttributes({
-                            backgroundColor: selectedData[selectedCollectionItemColumnIndex]
-                        })
-                    }
+            const applyColorRecursively = async (node: CanvasNode) => {
+                setColor(node, colorName)
+            
+                const children = await node.getChildren()
+                if (children && children.length > 0) {
+                    children.forEach((child: CanvasNode) => applyColorRecursively(child))
                 }
-            });
+            }
+    
+            selection.forEach((node: CanvasNode) => {
+                applyColorRecursively(node)
+            })
         } catch (error) {
-            console.error("Error setting color:", error);
+            console.error("Error setting color:", error)
         }
-    };
+    }
+
+    const setColor = (node: CanvasNode, colorName: string) => {
+        if (isFrameNode(node) && node.backgroundColor && typeof node.backgroundColor === 'object' && 'name' in node.backgroundColor) {
+            if (node.backgroundColor.name === colorName) {
+                node.setAttributes({
+                    backgroundColor: selectedData[selectedCollectionItemColumnIndex]
+                })
+            }
+        }
+    }
 
     const handleSelectedCollectionChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedId = event.target.value
@@ -183,10 +194,10 @@ export function App() {
                 Set Selected
             </button>
             <button className="framer-button-primary" onClick={() => handleSetColor("Primary Color")}>
-                Set "Primary Color"
+                Set Selected "Primary Color"
             </button>
             <button className="framer-button-primary" onClick={() => handleSetColor("Secondary Color")}>
-                Set "Secondary Color"
+                Set Selected "Secondary Color"
             </button>
         </main>
     )
