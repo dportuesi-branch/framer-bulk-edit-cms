@@ -54,6 +54,7 @@ export function App() {
             if (selection) {
                 selection.forEach((selected: CanvasNode) => {
                     if (selectedCollection) {
+                        console.log(selected)
                         if(isTextNode(selected)) {                   
                             selected.setText(selectedData[selectedCollectionItemColumnIndex])
                         } else if(isComponentInstanceNode(selected)){
