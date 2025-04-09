@@ -133,6 +133,7 @@ export function App() {
         }
     }
 
+    const submitDisabled = selection.length > 0 && selectedDataSlug != "" ? false : true
     return (
         <main>
             <div style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
@@ -199,7 +200,7 @@ export function App() {
             <p>
                 You have {selection.length} {layer} selected.
             </p>
-            <button className="framer-button-primary" onClick={async () => await handleSetContent()}>
+            <button className="framer-button-primary" disabled={submitDisabled} onClick={async () => await handleSetContent()}>
                 Set Selected
             </button>
         </main>
