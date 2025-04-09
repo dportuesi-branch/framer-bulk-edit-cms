@@ -22,7 +22,6 @@ export function App() {
 
     const [selectedCollectionItemColumnIndex, setSelectedCollectionItemColumnIndex] = useState<number>(0)
     
-    // this is the data transform
     const [selectedData, setSelectedData] = useState<Columns>([])
     const [selectedColumnNames, setSelectedColumnNames] = useState<Columns>([])
 
@@ -47,63 +46,72 @@ export function App() {
     }, [selectedCollection])
     
     const selection = useSelection()
+    const [selectionCache, setSelectionCache] = useState<CanvasNode[]>([])
+
     const layer = selection.length === 1 ? "layer" : "layers"
 
+    const setAttributes = async (node: CanvasNode) => {
+        const selectedColumnName = selectedColumnNames[selectedCollectionItemColumnIndex]
+        const selectedDataValue = selectedData[selectedCollectionItemColumnIndex]
+        if ('name' in node && node.name == selectedColumnName) {
+            if (isTextNode(node)) {
+                await node.setText(selectedDataValue)
+            } else if(isFrameNode(node)) {
+                if (node.backgroundImage && typeof node.backgroundImage === 'object') {
+                    // setImage only works on selected node, so we have to select each image we want to set
+                    await framer.setSelection(node.id)
+                    await framer.setImage({
+                        image: selectedDataValue
+                    })
+                } 
+            } else if(isComponentInstanceNode(node)) {
+                if (node.controls && typeof node.controls === 'object') {
+                    await framer.setSelection(node.id)
+                    await framer.setImage({
+                        image: selectedDataValue
+                    })
+                }
+            }
+        }
+
+        // set color
+        if (isFrameNode(node) && node.backgroundColor && typeof node.backgroundColor === 'object' && 'name' in node.backgroundColor) {
+            if (node.backgroundColor.name === selectedColumnName) {
+                node.setAttributes({
+                    backgroundColor: selectedDataValue
+                })
+            }
+        }
+    }
+
     const handleSetContent = async () => {
+        setSelectionCache(selection)
         try {
-            if (selection) {
-                selection.forEach((selected: CanvasNode) => {
-                    if (selectedCollection) {
-                        console.log(selected)
-                        if(isTextNode(selected)) {                   
-                            selected.setText(selectedData[selectedCollectionItemColumnIndex])
-                        } else if(isComponentInstanceNode(selected)){
-                            framer.setImage({
-                                image: selectedData[selectedCollectionItemColumnIndex]
-                            })
-                        } else if(isFrameNode(selected)) {
-                            selected.setAttributes({
-                                backgroundColor: selectedData[selectedCollectionItemColumnIndex]
-                            })
+            if (selectionCache && selectedCollection) {
+                const applyAttributesRecursively = async (node: CanvasNode) => {
+                    await setAttributes(node)
+
+                    const children = await node.getChildren()
+                    if (children && children.length > 0) {
+                        for (const child of children) {
+                            await applyAttributesRecursively(child)
                         }
                     }
-                });
+                }
+                for (const selected of selectionCache) {
+                    await applyAttributesRecursively(selected)
+                }
             } else {
                 console.warn("Selected article not found");
             }
         } catch (error) {
             console.error("Error setting content:", error);
+        } finally {
+            // reset the selection to the original selection
+            // TODO this works inconsistently
+            //framer.setSelection(selectionCache.map((node) => node.id))
         }
     };
-
-    const handleSetColor = (colorName: string) => {
-        try {
-            const applyColorRecursively = async (node: CanvasNode) => {
-                setColor(node, colorName)
-            
-                const children = await node.getChildren()
-                if (children && children.length > 0) {
-                    children.forEach((child: CanvasNode) => applyColorRecursively(child))
-                }
-            }
-    
-            selection.forEach((node: CanvasNode) => {
-                applyColorRecursively(node)
-            })
-        } catch (error) {
-            console.error("Error setting color:", error)
-        }
-    }
-
-    const setColor = (node: CanvasNode, colorName: string) => {
-        if (isFrameNode(node) && node.backgroundColor && typeof node.backgroundColor === 'object' && 'name' in node.backgroundColor) {
-            if (node.backgroundColor.name === colorName) {
-                node.setAttributes({
-                    backgroundColor: selectedData[selectedCollectionItemColumnIndex]
-                })
-            }
-        }
-    }
 
     const handleSelectedCollectionChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedId = event.target.value
@@ -191,14 +199,8 @@ export function App() {
             <p>
                 You have {selection.length} {layer} selected.
             </p>
-            <button className="framer-button-primary" onClick={handleSetContent}>
+            <button className="framer-button-primary" onClick={async () => await handleSetContent()}>
                 Set Selected
-            </button>
-            <button className="framer-button-primary" onClick={() => handleSetColor("Primary Color")}>
-                Set Selected "Primary Color"
-            </button>
-            <button className="framer-button-primary" onClick={() => handleSetColor("Secondary Color")}>
-                Set Selected "Secondary Color"
             </button>
         </main>
     )
